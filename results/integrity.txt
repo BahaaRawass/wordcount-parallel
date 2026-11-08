@@ -1,0 +1,5 @@
+PASS: 30 measured trials and 10 warm-ups have the expected count.
+PASS: all ten summary rows independently recompute from raw timings and match the report.
+PASS: measured source hashes and pre-run prediction match the delivered files.
+PASS: 49 local Markdown links resolve; no unfinished-content markers.
+Report word count (whitespace-separated): 3760

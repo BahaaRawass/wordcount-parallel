@@ -1,0 +1,7 @@
+# Prediction recorded before measurement
+
+We predict that increasing the number of standard CPython threads will provide little or no speedup for our Python character-scanning loop. Each worker reads shared immutable lines, counts locally, and acquires the combine lock only once, so the GIL and thread overhead should matter more than contention on our result lock. Higher worker counts may take longer.
+
+Separate processes can execute Python on different cores, so a few processes may help with a sufficiently large input. However, spawning a fresh pool and serializing text are included in the measurement. On this laptop those costs may erase the benefit, especially at high worker counts. We will retain slow results as well as fast results.
+
+Protocol: fixed generated input of at least 50 MiB; case-sensitive `the`; workers 1, 2, 4, 8, 16; three measured repetitions after one warm-up per configuration; shuffled configuration order within each repetition with seed 451. Main experiment uses threads with lock reduction. Processes are a separate comparison series. Read/decode once before timing, then time partition/dispatch/count/combine/worker shutdown; trace and chart creation are outside timing. Every result must equal the generator's known count. Report arithmetic mean, sample standard deviation, minimum, maximum, and speedup against the one-thread mean. The range includes twice the 4 physical cores and extends to twice the 8 logical processors.

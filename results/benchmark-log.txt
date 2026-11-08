@@ -1,0 +1,63 @@
+{
+  "python": "3.13.15 (main, Aug 25 2026, 14:00:51) [MSC v.1944 64 bit (AMD64)]",
+  "implementation": "CPython",
+  "os": "Windows-11-10.0.26300-SP0",
+  "logical_processors": 8,
+  "cpu_model": "11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz",
+  "physical_cores": 4,
+  "gil_enabled": true,
+  "hardware_source": "Windows Win32_Processor CIM"
+}
+Input=52428828 bytes expected=2759412; read excluded=0.214s
+warmup threads   n= 1 13.041029s total=2759412
+warmup threads   n= 2 13.208312s total=2759412
+warmup threads   n= 4 13.029132s total=2759412
+warmup threads   n= 8 7.518162s total=2759412
+warmup threads   n=16 8.066088s total=2759412
+warmup processes n= 1 11.208607s total=2759412
+warmup processes n= 2 3.462513s total=2759412
+warmup processes n= 4 2.411296s total=2759412
+warmup processes n= 8 2.762413s total=2759412
+warmup processes n=16 2.562932s total=2759412
+trial 1 processes n= 2 5.596389s total=2759412
+trial 1 threads   n= 2 15.294447s total=2759412
+trial 1 threads   n= 8 15.229953s total=2759412
+trial 1 threads   n=16 14.806132s total=2759412
+trial 1 processes n=16 2.708923s total=2759412
+trial 1 processes n= 8 2.296963s total=2759412
+trial 1 processes n= 1 11.102886s total=2759412
+trial 1 processes n= 4 2.134531s total=2759412
+trial 1 threads   n= 4 5.634728s total=2759412
+trial 1 threads   n= 1 5.455005s total=2759412
+trial 2 processes n= 8 2.051738s total=2759412
+trial 2 processes n=16 2.352840s total=2759412
+trial 2 processes n= 4 2.313258s total=2759412
+trial 2 threads   n= 2 6.173853s total=2759412
+trial 2 processes n= 2 2.952290s total=2759412
+trial 2 threads   n= 1 4.764979s total=2759412
+trial 2 threads   n= 8 4.761565s total=2759412
+trial 2 processes n= 1 5.806730s total=2759412
+trial 2 threads   n= 4 4.157283s total=2759412
+trial 2 threads   n=16 4.161833s total=2759412
+trial 3 threads   n= 4 4.456374s total=2759412
+trial 3 processes n= 2 3.206462s total=2759412
+trial 3 threads   n= 1 4.369153s total=2759412
+trial 3 processes n=16 2.115540s total=2759412
+trial 3 threads   n= 2 5.181318s total=2759412
+trial 3 processes n= 1 5.128400s total=2759412
+trial 3 threads   n=16 4.114370s total=2759412
+trial 3 processes n= 8 1.668965s total=2759412
+trial 3 threads   n= 8 4.214327s total=2759412
+trial 3 processes n= 4 1.954787s total=2759412
+| Backend | Workers | Mean s | SD s | Min s | Max s | Speedup vs 1 thread |
+|---|---:|---:|---:|---:|---:|---:|
+| threads | 1 | 4.8630 | 0.5495 | 4.3692 | 5.4550 | 1.000 |
+| threads | 2 | 8.8832 | 5.5744 | 5.1813 | 15.2944 | 0.547 |
+| threads | 4 | 4.7495 | 0.7811 | 4.1573 | 5.6347 | 1.024 |
+| threads | 8 | 8.0686 | 6.2079 | 4.2143 | 15.2300 | 0.603 |
+| threads | 16 | 7.6941 | 6.1592 | 4.1144 | 14.8061 | 0.632 |
+| processes | 1 | 7.3460 | 3.2712 | 5.1284 | 11.1029 | 0.662 |
+| processes | 2 | 3.9184 | 1.4587 | 2.9523 | 5.5964 | 1.241 |
+| processes | 4 | 2.1342 | 0.1792 | 1.9548 | 2.3133 | 2.279 |
+| processes | 8 | 2.0059 | 0.3165 | 1.6690 | 2.2970 | 2.424 |
+| processes | 16 | 2.3924 | 0.2987 | 2.1155 | 2.7089 | 2.033 |

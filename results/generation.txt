@@ -1,0 +1,9 @@
+{
+  "bytes": 52428828,
+  "lines": 919804,
+  "word": "the",
+  "case_sensitive_count": 2759412,
+  "case_insensitive_count": 3679216,
+  "sha256": "956c9f284a045c129e23e63e57e5feec55edc08695cce7a2de476898dbc1b01a",
+  "line_ascii": "the cat sees the dog. The other theme is there; the end.\n"
+}

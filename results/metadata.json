@@ -1,0 +1,46 @@
+{
+  "started_utc": "2026-11-08T09:15:17.150802+00:00",
+  "machine": {
+    "python": "3.13.15 (main, Aug 25 2026, 14:00:51) [MSC v.1944 64 bit (AMD64)]",
+    "implementation": "CPython",
+    "os": "Windows-11-10.0.26300-SP0",
+    "logical_processors": 8,
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz",
+    "physical_cores": 4,
+    "gil_enabled": true,
+    "hardware_source": "Windows Win32_Processor CIM"
+  },
+  "input": {
+    "bytes": 52428828,
+    "lines": 919804,
+    "word": "the",
+    "case_sensitive_count": 2759412,
+    "case_insensitive_count": 3679216,
+    "sha256": "956c9f284a045c129e23e63e57e5feec55edc08695cce7a2de476898dbc1b01a",
+    "line_ascii": "the cat sees the dog. The other theme is there; the end.\n"
+  },
+  "workers": [
+    1,
+    2,
+    4,
+    8,
+    16
+  ],
+  "repeats": 3,
+  "seed": 451,
+  "read_seconds_excluded": 0.21402600000146776,
+  "word": "the",
+  "case_insensitive": false,
+  "combine": "lock",
+  "timing": "outer perf_counter: partition, worker creation, dispatch, count, reduction, shutdown; preloaded input",
+  "prediction": "# Prediction recorded before measurement\n\nWe predict that increasing the number of standard CPython threads will provide little or no speedup for our Python character-scanning loop. Each worker reads shared immutable lines, counts locally, and acquires the combine lock only once, so the GIL and thread overhead should matter more than contention on our result lock. Higher worker counts may take longer.\n\nSeparate processes can execute Python on different cores, so a few processes may help with a sufficiently large input. However, spawning a fresh pool and serializing text are included in the measurement. On this laptop those costs may erase the benefit, especially at high worker counts. We will retain slow results as well as fast results.\n\nProtocol: fixed generated input of at least 50 MiB; case-sensitive `the`; workers 1, 2, 4, 8, 16; three measured repetitions after one warm-up per configuration; shuffled configuration order within each repetition with seed 451. Main experiment uses threads with lock reduction. Processes are a separate comparison series. Read/decode once before timing, then time partition/dispatch/count/combine/worker shutdown; trace and chart creation are outside timing. Every result must equal the generator's known count. Report arithmetic mean, sample standard deviation, minimum, maximum, and speedup against the one-thread mean. The range includes twice the 4 physical cores and extends to twice the 8 logical processors.\n",
+  "source_sha256": {
+    "cli.py": "0f0eed0fbe4d39e3affbd9d38d84a0a6ce3bde2ceea2183ca16b9a62d5515479",
+    "core.py": "50bb94c85347ffd5f7ef1d8d9847f69e5764187f33c93d0ad34d51d7e86b340a",
+    "experiment.py": "9152fd0957451cdd46d54711c84c4cd4729f40021f9fe96d2c8737e432a8ac18",
+    "generate.py": "536d2920852500a351af1c140fd8f7183e8a1739eb877700fc9cfcb0afc79842",
+    "race.py": "6a4647d3dcc5aeadb677f9ca675e30605d693ecaedc033640f0b05b925eac187",
+    "__init__.py": "3f5281c8aa91d48848ff3c16359cc4899d39f7eedd9ba6f01ebfb0dc00637971"
+  },
+  "finished_utc": "2026-11-08T09:19:15.179994+00:00"
+}

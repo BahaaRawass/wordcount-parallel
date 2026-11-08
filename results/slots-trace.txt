@@ -1,0 +1,11 @@
+Backend=threads workers=3 combine=slots
+Word='the' case_insensitive=False lines=6
+Line ranges are 1-based inclusive; timestamps are ms from dispatch.
+Printed in chunk order after join; empty ranges have no lines.
+worker-1 tid=22008 lines=1-2 size=47 chars partial=2 start=0.867 end=0.895
+worker-2 tid=22172 lines=3-4 size=27 chars partial=3 start=1.119 end=1.136
+worker-3 tid=11920 lines=5-6 size=13 chars partial=2 start=1.308 end=1.319
+Reduction: 2 + 3 + 2 = 7
+TOTAL=7
+Read=0.000318s count/combine=0.001419s
+Finished UTC=2026-11-08T09:14:54+00:00

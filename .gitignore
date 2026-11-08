@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Generated input and local caches are not submission material.
+data/large.txt
+data/large.json
+.uv-cache/
+.pytest_cache/
+*.zip

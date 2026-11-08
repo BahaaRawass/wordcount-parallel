@@ -1,0 +1,15 @@
+Backend=threads workers=1 combine=lock
+Word='the' case_insensitive=False lines=6
+TOTAL=7
+Read=0.000257s count/combine=0.000901s
+Finished UTC=2026-11-08T09:21:07+00:00
+Backend=threads workers=8 combine=lock
+Word='the' case_insensitive=True lines=6
+TOTAL=9
+Read=0.000207s count/combine=0.002215s
+Finished UTC=2026-11-08T09:21:08+00:00
+Backend=processes workers=2 combine=parent sum
+Word='the' case_insensitive=False lines=6
+TOTAL=7
+Read=0.000292s count/combine=0.342006s
+Finished UTC=2026-11-08T09:21:08+00:00

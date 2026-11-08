@@ -1,0 +1,27 @@
+[project]
+name = "wordcount-parallel"
+version = "0.1.0"
+description = "COSC 451 threaded whole-word counting and measured process comparison"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "matplotlib>=3.11.2",
+]
+
+[project.scripts]
+wordcount = "wordcount.cli:main"
+wordcount-generate = "wordcount.generate:main"
+wordcount-experiment = "wordcount.experiment:main"
+wordcount-race = "wordcount.race:main"
+
+[tool.uv.build-backend]
+module-name = "wordcount"
+
+[build-system]
+requires = ["uv_build>=0.12.7,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
