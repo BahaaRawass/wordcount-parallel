@@ -208,6 +208,10 @@ uv run wordcount-cluster-worker --server http://192.168.1.20:8000 --name laptop-
 uv run wordcount-cluster-worker --server http://192.168.1.20:8000 --name slow-laptop --late 8
 ```
 
+**Count any file.** The dashboard has a *Job* panel (only on the coordinator laptop). Choose a `.txt` or Word `.docx` file, type the word, set the number of tasks, tick *ignore upper/lower case* if wanted, and press **Load**. The queue resets with the new file, phones that already joined stay connected, and the dashboard shows the new expected total. Leave the file empty to change only the word. In a Word file each paragraph (including table cells and text inside shapes) becomes one line; old `.doc` files must be saved as `.docx` first. Answers that belong to a previous file are ignored, so changing the file mid-run can never mix two counts.
+
+The same works from the terminal: `uv run wordcount-cluster --file "C:\path\essay.docx" --word data`.
+
 `--pace` makes each worker wait a moment per task so the audience can follow; use `--pace 0` for full speed. `Start` and `Restart` only work from the coordinator laptop itself.
 
 **Before class:** when Windows asks, allow Python on *private* networks. Many university Wi-Fi networks block phone-to-laptop traffic; if phones cannot open the page, turn on a phone hotspot, connect the laptop and the phones to it, and restart the command (the printed address changes).

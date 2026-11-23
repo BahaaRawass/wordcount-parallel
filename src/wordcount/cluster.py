@@ -20,8 +20,11 @@ How failures are handled (the same idea as Amazon SQS or Celery):
 import argparse
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import io
 import json
 from pathlib import Path
+import xml.etree.ElementTree as ET
+import zipfile
 import socket
 import subprocess
 import sys
@@ -30,10 +33,85 @@ import time
 import urllib.parse
 import urllib.request
 
-from wordcount.core import count_lines, partition_lines, read_lines, validate_word
+from wordcount.core import count_lines, partition_lines, validate_word
 from wordcount.cluster_pages import DASHBOARD_HTML, WORKER_HTML
 
 DEFAULT_PORT = 8000
+MAX_UPLOAD = 10 * 1024 * 1024  # 10 MB is plenty for a classroom demo
+WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+# ------------------------------------------------------------------ input files
+def extract_lines(name: str, data: bytes) -> list[str]:
+    """Turn an uploaded .txt or .docx file into a list of lines.
+
+    For a Word file every paragraph becomes one line, so the same "split
+    between whole lines" rule still keeps every word in one piece.
+    """
+    if name.lower().endswith(".docx"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                root = ET.fromstring(archive.read("word/document.xml"))
+        except (zipfile.BadZipFile, KeyError, ET.ParseError) as error:
+            raise ValueError(f"{name} is not a readable Word (.docx) file") from error
+        return _docx_paragraphs(root)
+    if name.lower().endswith(".doc"):
+        raise ValueError("old .doc files are not supported: save it as .docx or .txt")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = data.decode("cp1252", errors="replace")  # Windows Notepad's older default
+    return text.splitlines(keepends=True)
+
+
+MC_FALLBACK = "{http://schemas.openxmlformats.org/markup-compatibility/2006}Fallback"
+
+
+def _docx_paragraphs(root: ET.Element) -> list[str]:
+    """One line per paragraph, in document order.
+
+    Text boxes (shapes, diagrams) contain their own paragraphs nested inside an
+    outer paragraph. Each paragraph keeps only its own text, so nothing is read
+    twice, and Word's duplicate "Fallback" copy of every shape is skipped.
+    """
+    lines: list[str] = []
+
+    def gather(node: ET.Element, parts: list[str], nested: list[ET.Element]) -> None:
+        for child in node:
+            if child.tag == MC_FALLBACK:
+                continue
+            if child.tag == WORD_NS + "p":
+                nested.append(child)          # handled as its own line later
+                continue
+            if child.tag == WORD_NS + "t" and child.text:
+                parts.append(child.text)
+            elif child.tag in (WORD_NS + "tab", WORD_NS + "br"):
+                parts.append(" ")
+            gather(child, parts, nested)
+
+    def paragraph(node: ET.Element) -> None:
+        parts: list[str] = []
+        nested: list[ET.Element] = []
+        gather(node, parts, nested)
+        lines.append("".join(parts) + "\n")
+        for inner in nested:
+            paragraph(inner)
+
+    def walk(node: ET.Element) -> None:
+        for child in node:
+            if child.tag == MC_FALLBACK:
+                continue
+            if child.tag == WORD_NS + "p":
+                paragraph(child)
+            else:
+                walk(child)
+
+    walk(root)
+    return lines
+
+
+def read_input(path: Path) -> list[str]:
+    return extract_lines(path.name, path.read_bytes())
 
 
 # ------------------------------------------------------------------ the queue
@@ -42,20 +120,30 @@ class TaskQueue:
     request threads never see a half-updated task (a critical section)."""
 
     def __init__(self, lines: list[str], word: str, tasks: int, lease: float = 5.0,
-                 pace: float = 0.0, case_insensitive: bool = False, clock=time.monotonic):
-        validate_word(word)
-        self.lines, self.word, self.lease, self.pace = lines, word, lease, pace
-        self.case_insensitive = case_insensitive
-        self.task_count = max(1, min(tasks, len(lines) or 1))
-        self.clock = clock
+                 pace: float = 0.0, case_insensitive: bool = False, clock=time.monotonic,
+                 source: str = "input"):
+        self.lease, self.pace, self.clock = lease, pace, clock
         self.lock = threading.Lock()
-        self.expected = count_lines(lines, 0, len(lines), word, case_insensitive)
         self.workers: dict[str, dict] = {}
-        self.reset()
+        self.job = 0
+        self.load(lines, word, tasks, case_insensitive, source)
 
     # -- lifecycle
+    def load(self, lines: list[str], word: str, tasks: int,
+             case_insensitive: bool = False, source: str = "input") -> None:
+        """Start a new job (new file and/or word). Workers stay connected."""
+        validate_word(word)
+        expected = count_lines(lines, 0, len(lines), word, case_insensitive)
+        with self.lock:
+            self.lines, self.word, self.source = lines, word, source
+            self.case_insensitive = case_insensitive
+            self.task_count = max(1, min(tasks, len(lines) or 1))
+            self.expected = expected
+        self.reset()
+
     def reset(self) -> None:
-        with getattr(self, "lock", threading.Lock()):
+        with self.lock:
+            self.job += 1   # answers that belong to an older job are ignored
             self.tasks = [{"id": i + 1, "start": a, "stop": b, "state": "pending",
                            "worker": None, "lease_until": 0.0, "attempts": 0,
                            "partial": None, "done_by": None, "expired": 0}
@@ -67,7 +155,8 @@ class TaskQueue:
             self.duplicates = 0
             for info in self.workers.values():
                 info.update(done=0, current=None)
-            self._event("Queue ready: %d tasks waiting for workers" % len(self.tasks))
+            self._event(f"Queue ready: {self.source}, {len(self.lines)} lines, word "
+                        f"'{self.word}', {len(self.tasks)} tasks")
 
     def start(self) -> None:
         with self.lock:
@@ -109,11 +198,11 @@ class TaskQueue:
             info = self.workers.setdefault(worker, {"done": 0, "current": None})
             info["seen"] = self.clock()
             if self.phase != "running":
-                return {"task": None, "phase": self.phase}
+                return {"task": None, "phase": self.phase, "job": self.job}
             self._expire_leases()
             task = next((t for t in self.tasks if t["state"] == "pending"), None)
             if task is None:
-                return {"task": None, "phase": self.phase}
+                return {"task": None, "phase": self.phase, "job": self.job}
             task["attempts"] += 1
             task.update(state="running", worker=worker,
                         lease_until=self.clock() + self.lease)
@@ -122,17 +211,21 @@ class TaskQueue:
             self._event(f"SEND  task {task['id']} (lines {task['start'] + 1}-{task['stop']})"
                         f" -> {worker}{again}")
             return {"phase": self.phase, "task": {
-                "id": task["id"], "start": task["start"], "stop": task["stop"],
+                "job": self.job, "id": task["id"], "start": task["start"], "stop": task["stop"],
                 "lines": self.lines[task["start"]:task["stop"]], "word": self.word,
                 "case_insensitive": self.case_insensitive, "attempt": task["attempts"],
                 "pace": self.pace}}
 
-    def submit(self, worker: str, task_id: int, partial: int) -> str:
+    def submit(self, worker: str, task_id: int, partial: int, job: int | None = None) -> str:
         with self.lock:
             if worker in self.workers:
                 self.workers[worker]["seen"] = self.clock()
                 if self.workers[worker]["current"] == task_id:
                     self.workers[worker]["current"] = None
+            if job is not None and job != self.job:
+                self._event(f"OLD JOB IGNORED: {worker} answered task {task_id} "
+                            f"of a previous file")
+                return "old job ignored"
             if not 1 <= task_id <= len(self.tasks):
                 return "unknown task"
             task = self.tasks[task_id - 1]
@@ -164,6 +257,8 @@ class TaskQueue:
             end = self.finished or now
             return {
                 "phase": self.phase, "word": self.word, "expected": self.expected,
+                "source": self.source, "job": self.job,
+                "case_insensitive": self.case_insensitive,
                 "lines": len(self.lines), "lease": self.lease, "pace": self.pace,
                 "total_so_far": sum(t["partial"] for t in done),
                 "done": len(done), "tasks_total": len(self.tasks),
@@ -217,24 +312,51 @@ def make_handler(queue: TaskQueue, phone_url: str):
                 self._send(404, b"not found", "text/plain")
 
         def do_POST(self) -> None:
+            url = urllib.parse.urlparse(self.path)
             length = int(self.headers.get("Content-Length") or 0)
+            if length > MAX_UPLOAD:
+                return self._json({"error": "file is larger than 10 MB"}, 413)
+            body = self.rfile.read(length)
+            if url.path == "/api/load":
+                return self._load(urllib.parse.parse_qs(url.query), body)
             try:
-                data = json.loads(self.rfile.read(length) or b"{}")
+                data = json.loads(body or b"{}")
             except ValueError:
                 return self._json({"error": "bad json"}, 400)
-            if self.path == "/api/join":
+            if url.path == "/api/join":
                 self._json({"name": queue.join(str(data.get("name", "")))})
-            elif self.path == "/api/result":
+            elif url.path == "/api/result":
+                job = data.get("job")
                 status = queue.submit(str(data.get("worker")), int(data.get("task_id", 0)),
-                                      int(data.get("partial", 0)))
+                                      int(data.get("partial", 0)),
+                                      None if job is None else int(job))
                 self._json({"status": status})
-            elif self.path in ("/api/start", "/api/reset"):
+            elif url.path in ("/api/start", "/api/reset"):
                 if not self._local():
                     return self._json({"error": "only the coordinator laptop can do this"}, 403)
-                queue.start() if self.path == "/api/start" else queue.reset()
+                queue.start() if url.path == "/api/start" else queue.reset()
                 self._json({"ok": True})
             else:
                 self._json({"error": "not found"}, 404)
+
+        def _load(self, query: dict, body: bytes) -> None:
+            """New file and/or word from the dashboard. An empty body keeps the current file."""
+            if not self._local():
+                return self._json({"error": "only the coordinator laptop can do this"}, 403)
+            get = lambda key, default: query.get(key, [default])[0]
+            try:
+                name = get("name", queue.source)
+                lines = extract_lines(name, body) if body else queue.lines
+                if not body:
+                    name = queue.source
+                tasks = int(get("tasks", str(queue.task_count)))
+                if not 1 <= tasks <= 200:
+                    raise ValueError("number of tasks must be between 1 and 200")
+                queue.load(lines, get("word", queue.word).strip(), tasks,
+                           get("ci", "0") == "1", name)
+            except ValueError as error:
+                return self._json({"error": str(error)}, 400)
+            self._json({"ok": True, "lines": len(lines), "expected": queue.expected})
 
     return Handler
 
@@ -270,19 +392,26 @@ def _http(server: str, path: str, data: dict | None = None, timeout: float = 5.0
 
 
 def run_worker(server: str, name: str, crash_after: int = 0, late: float = 0.0,
-               stop: threading.Event | None = None, quiet: bool = False) -> int:
-    """Pull tasks until the job is finished. Returns the number of tasks answered."""
+               stop: threading.Event | None = None, quiet: bool = False,
+               stay: bool = False) -> int:
+    """Pull tasks until the job is finished (or, with stay=True, keep waiting for
+    the next job). Returns the number of tasks answered."""
     name = _http(server, "/api/join", {"name": name})["name"]
     say = (lambda *a: None) if quiet else (lambda text: print(f"[{name}] {text}", flush=True))
     say(f"joined {server}")
     taken = answered = 0
+    announced = None
     while stop is None or not stop.is_set():
         reply = _http(server, "/api/task?worker=" + urllib.parse.quote(name))
         task = reply.get("task")
         if task is None:
             if reply.get("phase") == "finished":
-                say("job finished")
-                return answered
+                if not stay:
+                    say("job finished")
+                    return answered
+                if announced != reply.get("job"):
+                    say("job finished; waiting for the next one")
+                    announced = reply.get("job")
             time.sleep(0.3)
             continue
         taken += 1
@@ -297,7 +426,8 @@ def run_worker(server: str, name: str, crash_after: int = 0, late: float = 0.0,
             say(f"pretending to be slow: answering after {wait:.1f}s")
         time.sleep(wait)
         status = _http(server, "/api/result",
-                       {"worker": name, "task_id": task["id"], "partial": partial})["status"]
+                       {"worker": name, "task_id": task["id"], "partial": partial,
+                        "job": task.get("job")})["status"]
         answered += 1
         say(f"task {task['id']} partial={partial}: {status}")
     return answered
@@ -313,7 +443,7 @@ def worker_main() -> None:
                         help="demo: answer the first task this many seconds late")
     args = parser.parse_args()
     try:
-        run_worker(args.server, args.name, args.crash_after, args.late)
+        run_worker(args.server, args.name, args.crash_after, args.late, stay=True)
     except KeyboardInterrupt:
         print("stopped")
     except OSError as error:
@@ -343,8 +473,8 @@ def main() -> None:
                         help="start immediately instead of waiting for the Start button")
     args = parser.parse_args()
     try:
-        queue = TaskQueue(read_lines(args.file), args.word, args.tasks, args.lease,
-                          args.pace, args.case_insensitive)
+        queue = TaskQueue(read_input(args.file), args.word, args.tasks, args.lease,
+                          args.pace, args.case_insensitive, source=args.file.name)
         server = serve(queue, port=args.port)
     except (OSError, ValueError) as error:
         parser.error(str(error))

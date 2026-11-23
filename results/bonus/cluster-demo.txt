@@ -2,27 +2,27 @@ Classroom cluster: 400 lines, word='the', 12 tasks, lease=3.0s, expected total=6
   Projector dashboard : http://localhost:8000/dashboard
   Phones and laptops  : http://192.0.2.2:8000   (same Wi-Fi)
   Press Ctrl+C to stop.
-[laptop-1] joined http://127.0.0.1:8000
 [laptop-2] joined http://127.0.0.1:8000
 [laptop-3] joined http://127.0.0.1:8000
-[laptop-1] got task 1 (lines 1-33)
-[laptop-2] got task 2 (lines 34-66)
+[laptop-1] joined http://127.0.0.1:8000
+[laptop-2] got task 1 (lines 1-33)
 [laptop-2] pretending to be slow: answering after 5.8s
-[laptop-3] got task 3 (lines 67-100)
-[laptop-1] task 1 partial=52: accepted
-[laptop-1] got task 5 (lines 134-166)
+[laptop-3] got task 2 (lines 34-66)
+[laptop-1] got task 3 (lines 67-100)
+[laptop-3] task 2 partial=56: accepted
+[laptop-3] got task 5 (lines 134-166)
+[laptop-1] task 3 partial=52: accepted
+[laptop-1] got task 6 (lines 167-200)
 [laptop-1] SIMULATED CRASH: leaving without answering
-[laptop-3] task 3 partial=52: accepted
-[laptop-3] got task 6 (lines 167-200)
-[laptop-3] task 6 partial=54: accepted
+[laptop-3] task 5 partial=65: accepted
 [laptop-3] got task 8 (lines 234-266)
 [laptop-3] task 8 partial=53: accepted
 [laptop-3] got task 9 (lines 267-300)
 [laptop-3] task 9 partial=51: accepted
-[laptop-3] got task 2 (lines 34-66)
-[laptop-3] task 2 partial=56: accepted
-[laptop-3] got task 5 (lines 134-166)
-[laptop-3] task 5 partial=65: accepted
-[laptop-3] job finished
-[laptop-2] task 2 partial=56: duplicate ignored
-[laptop-2] job finished
+[laptop-3] got task 1 (lines 1-33)
+[laptop-3] task 1 partial=52: accepted
+[laptop-3] got task 6 (lines 167-200)
+[laptop-3] task 6 partial=54: accepted
+[laptop-3] job finished; waiting for the next one
+[laptop-2] task 1 partial=52: duplicate ignored
+[laptop-2] job finished; waiting for the next one

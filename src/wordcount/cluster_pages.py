@@ -54,15 +54,15 @@ async function loop(){
     catch(e){ $('status').textContent='Cannot reach the coordinator, retrying…'; await sleep(1500); continue; }
     const t=reply.task;
     if(!t){
-      if(reply.phase==='finished'){ $('status').innerHTML='<span class="ok">✓ The whole job is finished. Thank you!</span>'; running=false; break; }
+      if(reply.phase==='finished'){ $('status').innerHTML='<span class="ok">✓ The whole job is finished. Stay here for the next one!</span>'; $('lines').classList.add('hidden'); await sleep(1500); continue; }
       $('status').textContent= reply.phase==='waiting' ? 'Waiting for the coordinator to press Start…' : 'No free task right now…';
       $('lines').classList.add('hidden'); await sleep(800); continue; }
-    $('status').innerHTML=`<span class="working">Counting task ${t.id} (lines ${t.start+1}–${t.stop})…</span>`;
+    $('status').innerHTML=`<span class="working">Counting "${t.word.replace(/[<>&]/g,'')}" in task ${t.id} (lines ${t.start+1}–${t.stop})…</span>`;
     $('lines').textContent=t.lines.slice(0,4).join('')+(t.lines.length>4?'…':''); $('lines').classList.remove('hidden');
     const partial=countWord(t.lines, t.word, t.case_insensitive);
     await sleep(t.pace*1000);
     if(!running) break;                         // left while holding the task
-    const res=await api('/api/result',{worker:me, task_id:t.id, partial});
+    const res=await api('/api/result',{worker:me, task_id:t.id, partial, job:t.job});
     if(res.status==='accepted'){ done++; $('done').textContent=done; }
     $('status').innerHTML=`<span class="ok">Task ${t.id}: found ${partial} → ${res.status}</span>`;
     await sleep(200);
@@ -106,12 +106,19 @@ DASHBOARD_HTML = r"""<!doctype html>
  button{font-size:1rem;padding:9px 18px;border:0;border-radius:8px;background:var(--amber);font-weight:700;cursor:pointer;margin-left:8px}
  button.sec{background:#fff;color:var(--navy)}
  .result{font-size:1.25rem;font-weight:700;margin-top:8px}
+ .current{font-size:1.05rem;color:#444;margin-bottom:10px} .current b{color:var(--navy)}
+ #jobCard label{display:block;font-size:.85rem;color:#555;margin-top:8px}
+ #jobCard input[type=text],#jobCard input[type=number],#jobCard input[type=file]{width:100%;font-size:.95rem;padding:7px;border:1px solid #c8cfdb;border-radius:7px;margin-top:3px;background:#fff}
+ #jobCard .row{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+ #jobCard .chk{display:flex;gap:6px;align-items:center} #jobCard button{margin:12px 0 0;width:100%}
+ #msg{display:block;margin-top:8px;font-size:.88rem}
 </style></head><body>
 <header><h1>Classroom cluster: distributed word count</h1>
  <div class="join">Join from your phone (same Wi-Fi): <b id="url">{{PHONE_URL}}</b></div>
  <div id="controls"><button id="start">Start</button><button id="reset" class="sec">Restart</button></div></header>
 <main>
  <section class="card">
+  <div class="current" id="current"></div>
   <div class="stats">
    <div class="stat"><div class="v" id="phase">…</div><div class="k">status</div></div>
    <div class="stat"><div class="v" id="prog">0/0</div><div class="k">tasks done</div></div>
@@ -127,6 +134,12 @@ DASHBOARD_HTML = r"""<!doctype html>
   <div class="grid" id="tasks" style="margin-top:10px"></div>
  </section>
  <section style="display:grid;gap:18px;align-content:start">
+  <div class="card" id="jobCard"><h2>Job: choose what to count</h2>
+   <label>File (.txt or Word .docx), leave empty to keep the current one<input type="file" id="file" accept=".txt,.docx,text/plain"></label>
+   <div class="row"><label>Word<input type="text" id="word" maxlength="40"></label><label>Tasks<input type="number" id="ntasks" min="1" max="200"></label></div>
+   <label class="chk"><input type="checkbox" id="ci"> ignore upper/lower case</label>
+   <button id="load">Load (resets the queue)</button><span id="msg"></span>
+  </div>
   <div class="card"><h2>Workers</h2><table><thead><tr><th>Name</th><th>Doing</th><th>Done</th></tr></thead><tbody id="workers"></tbody></table></div>
   <div class="card"><h2>Messages</h2><ol id="events"></ol></div>
  </section>
@@ -136,9 +149,20 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function post(p){ const r=await fetch(p,{method:'POST',body:'{}'}); if(!r.ok) alert('Only the coordinator laptop can do this'); }
 $('start').onclick=()=>post('/api/start'); $('reset').onclick=()=>post('/api/reset');
+let shownJob=null;
+$('load').onclick=async()=>{
+  const f=$('file').files[0], q=new URLSearchParams({word:$('word').value.trim(), tasks:$('ntasks').value, ci:$('ci').checked?'1':'0'});
+  if(f) q.set('name', f.name);
+  $('msg').textContent='Loading…'; $('msg').style.color='#555';
+  try{ const r=await fetch('/api/load?'+q, {method:'POST', body: f||''}); const d=await r.json();
+    if(!r.ok) throw new Error(d.error||'failed');
+    $('msg').textContent=`Loaded ${d.lines} lines. Expected total: ${d.expected}. Press Start.`; $('msg').style.color='var(--dgreen)'; $('file').value='';
+  }catch(e){ $('msg').textContent='✗ '+e.message; $('msg').style.color='var(--red)'; } };
 async function tick(){
   let s; try{ s=await (await fetch('/api/state')).json(); }catch(e){ $('phase').textContent='offline'; return; }
-  $('controls').style.display=s.can_control?'':'none';
+  $('controls').style.display=s.can_control?'':'none'; $('jobCard').style.display=s.can_control?'':'none';
+  $('current').innerHTML=`Counting <b>"${esc(s.word)}"</b>${s.case_insensitive?' (any case)':''} in <b>${esc(s.source)}</b> · ${s.lines} lines · ${s.tasks_total} tasks`;
+  if(shownJob!==s.job){ shownJob=s.job; $('word').value=s.word; $('ntasks').value=s.tasks_total; $('ci').checked=s.case_insensitive; }
   $('phase').textContent=s.phase; $('prog').textContent=`${s.done}/${s.tasks_total}`;
   $('sofar').textContent=s.total_so_far; $('exp').textContent=s.expected; $('time').textContent=s.elapsed; $('dups').textContent=s.duplicates;
   $('fill').style.width=(100*s.done/s.tasks_total)+'%';
