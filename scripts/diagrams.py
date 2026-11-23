@@ -37,7 +37,7 @@ def main():
         box(axis, x, 3.7, label)
         arrow(axis, (6, 5.45), (x, 4.25))
         arrow(axis, (x, 3.15), (6, 1.85))
-    axis.text(6, 4.75, "Shared immutable line list; each worker owns a range",
+    axis.text(6, 4.75, "Shared line list (read only); each worker owns a range",
               fontsize=11, ha="center", bbox={"facecolor": "white", "edgecolor": "none"})
     box(axis, 6, 1.3, "Lock-protected total OR private slots + join\n2 + 3 + 2 = 7", 7, 1)
     axis.text(6, 0.25, "OS threads are concurrent; the tested CPython GIL serializes Python bytecode.",

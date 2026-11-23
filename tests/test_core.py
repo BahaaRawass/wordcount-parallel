@@ -99,3 +99,69 @@ def test_worker_exception_reaches_caller(monkeypatch):
     monkeypatch.setattr("wordcount.core.count_lines", broken)
     with pytest.raises(RuntimeError, match="intentional test failure"):
         count_threaded(["the"], "the", 2)
+
+
+# ---------------------------------------------------------------- bonus tests
+import socket as _socket
+import threading as _threading
+
+from wordcount.distributed import coordinate, serve_worker
+from wordcount.natural_race import run_natural_race
+
+
+def _free_port() -> int:
+    with _socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _start_worker(name, **kwargs):
+    port, ready, stop = _free_port(), _threading.Event(), _threading.Event()
+    thread = _threading.Thread(target=serve_worker, daemon=True,
+                               args=("127.0.0.1", port, name),
+                               kwargs={"ready": ready, "stop": stop, "quiet": True, **kwargs})
+    thread.start()
+    assert ready.wait(5)
+    return ("127.0.0.1", port), stop
+
+
+SAMPLE = ["the cat and the dog.\n", "The other theme is there.\n", "the, THE; the!\n",
+          "another the\n", "the\n", "end the."]
+
+
+def test_distributed_matches_hand_count():
+    a, stop_a = _start_worker("A")
+    b, stop_b = _start_worker("B")
+    try:
+        result = coordinate(SAMPLE, "the", [a, b], tasks_count=3, verbose=False)
+        assert result.total == 7
+        assert sorted(result.partials) == [1, 2, 3]
+        assert coordinate(SAMPLE, "the", [a, b], case_insensitive=True, verbose=False).total == 9
+    finally:
+        stop_a.set(); stop_b.set()
+
+
+def test_distributed_recovers_from_crashed_worker():
+    bad, stop_bad = _start_worker("crashy", crash_after=1)
+    good, stop_good = _start_worker("good")
+    try:
+        result = coordinate(SAMPLE, "the", [bad, good], tasks_count=3, timeout=1.0, verbose=False)
+        assert result.total == 7
+        assert "127.0.0.1:%d" % bad[1] in result.dead_workers
+    finally:
+        stop_bad.set(); stop_good.set()
+
+
+def test_distributed_recovers_from_unreachable_worker():
+    good, stop_good = _start_worker("good")
+    try:
+        result = coordinate(SAMPLE, "the", [("127.0.0.1", _free_port()), good],
+                            timeout=0.5, verbose=False)
+        assert result.total == 7
+        assert len(result.dead_workers) == 1
+    finally:
+        stop_good.set()
+
+
+def test_natural_race_locked_is_exact():
+    assert run_natural_race(4, 5000, locked=True) == 20000

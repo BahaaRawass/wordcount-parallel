@@ -11,6 +11,7 @@ for directory in ("src", "tests", "docs", "scripts", "results"):
     files.extend(path for path in (root / directory).rglob("*")
                  if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc")
 files.append(root / "data/sample.txt")
+files += [root / "data/classroom.txt", root / "data/classroom.json"]
 with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
     for path in sorted(files):
         archive.write(path, Path(root.name) / path.relative_to(root))

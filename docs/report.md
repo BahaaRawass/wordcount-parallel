@@ -40,7 +40,7 @@ The equivalent text diagram is:
 
 ```text
                     MAIN: read six complete lines
-                  shared immutable list in one process
+                  shared list (read-only by convention) in one process
                        /           |           \
                 worker 1       worker 2       worker 3
                 lines 1-2      lines 3-4      lines 5-6

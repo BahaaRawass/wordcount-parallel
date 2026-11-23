@@ -122,3 +122,94 @@ See [results/table.md](results/table.md), [results/experiment.png](results/exper
 | [Requirement checklist](docs/checklist.md)           | Requirement-to-evidence mapping                                  |
 
 Regenerate architecture PNGs with `uv run scripts/diagrams.py`. All application code and diagrams were written for this project; no web code was copied. Conceptual sources are cited in the report. Matplotlib draws the figures; the core algorithm is a Python loop, not `str.count`, regex matching, or a NumPy operation. A test uses regex only as an independent correctness oracle.
+
+## Bonus features (added after the first submission draft)
+
+These extend the required demo. None of them change the original counter.
+
+### 1. Turn the GIL off: same code, real thread speedup
+
+Python 3.13 ships an official experimental free-threaded build (`3.13t`) with no GIL. We run the unchanged `count_threaded` on both builds.
+
+```powershell
+uv python install 3.13t
+uv run wordcount-generate --file data/large.txt --mib 50
+uv run wordcount-gil run --file data/large.txt --workers 1 2 4 8 --repeats 5 --output results/bonus/gil-on.csv
+uv run --python 3.13t wordcount-gil run --file data/large.txt --workers 1 2 4 8 --repeats 5 --output results/bonus/gil-off.csv
+uv run wordcount-gil plot results/bonus/gil-on.csv results/bonus/gil-off.csv --output results/bonus/gil.png
+```
+
+If matplotlib cannot install under 3.13t, add `--no-project` and set `PYTHONPATH=src` for the 3.13t run; plotting is always done with the normal interpreter.
+
+### 2. A natural race condition (no barriers, no sleeps)
+
+```powershell
+uv run wordcount-natural-race                  # GIL on: usually 0 lost
+uv run --python 3.13t wordcount-natural-race   # GIL off: hundreds of thousands lost
+```
+
+### 3. Thread timeline (who is really running)
+
+```powershell
+uv run wordcount-timeline --file data/large.txt --threads 2 --output results/bonus/timeline-gil-on.json
+uv run --python 3.13t wordcount-timeline --file data/large.txt --threads 2 --output results/bonus/timeline-gil-off.json
+uv run wordcount-timeline --plot results/bonus/timeline-gil-on.json results/bonus/timeline-gil-off.json --output results/bonus/timeline.png
+```
+
+### 4. Distributed version over sockets, with failure recovery
+
+A coordinator splits the file into line-range tasks and sends each one as a JSON message over TCP to a worker process. Workers reply with their partial count. If a worker crashes or stops answering within the timeout, its task is sent to another worker, and each task ID is accepted only once.
+
+Simulated on one laptop (separate processes talking through sockets, as the brief allows):
+
+```powershell
+uv run wordcount-coordinator --file data/sample.txt --word the --local 3
+uv run wordcount-coordinator --file data/sample.txt --word the --local 3 --crash-one --delay 0.3
+```
+
+On real laptops (all on the same phone hotspot):
+
+```powershell
+# on each worker laptop (allow Python through the Windows firewall when asked)
+ipconfig                         # note the IPv4 address
+uv run wordcount-worker --name laptop-B
+# on the coordinator laptop
+uv run wordcount-coordinator --file data/sample.txt --word the --workers 192.168.43.12 192.168.43.15 --timeout 3
+```
+
+During the demo, close one worker window or turn off its Wi-Fi: the coordinator prints `FAIL ... task goes back in the queue`, resends it, and still prints `TOTAL=7`.
+
+Saved outputs from our runs are in `results/bonus/`.
+
+### 5. Classroom cluster: the class becomes the computer (fault-tolerant task queue)
+
+The laptop runs a small web server. Classmates on the same Wi-Fi open the address in their phone browser and each phone becomes a worker. A live dashboard on the projector shows every task (waiting, running, done), which device has it, the running total, and every message.
+
+It works like real job queues (Amazon SQS, Celery):
+
+* **Workers pull tasks.** A worker asks for a task, counts its lines, and sends back the partial count.
+* **Leases.** A worker may hold a task for `--lease` seconds. If no answer arrives in time (tab closed, phone locked, Wi-Fi lost), the task goes back in the queue and another worker takes it.
+* **Counted exactly once.** A task can be *executed* twice (the "dead" worker may still answer later), but its result is *counted* only once: the first result wins and later ones are shown as `DUPLICATE IGNORED`.
+* **Checked answer.** The coordinator knows the correct total in advance and shows ✓ or ✗ at the end.
+
+```powershell
+# 1. Practise alone: 3 worker processes on this laptop, one crashes, one answers late
+uv run wordcount-cluster --local 3 --crash-one --late-one
+#    open http://localhost:8000/dashboard and press Start
+
+# 2. In class
+uv run wordcount-cluster --file data/classroom.txt --word the --tasks 20 --lease 5 --pace 1.5
+#    projector: http://localhost:8000/dashboard
+#    classmates open the "Phones and laptops" address printed in the terminal, type a name, press Join
+#    press Start on the dashboard; ask one person to press "Leave" (or close the tab) mid-task
+
+# 3. Another laptop can join from a terminal instead of a browser
+uv run wordcount-cluster-worker --server http://192.168.1.20:8000 --name laptop-B
+uv run wordcount-cluster-worker --server http://192.168.1.20:8000 --name slow-laptop --late 8
+```
+
+`--pace` makes each worker wait a moment per task so the audience can follow; use `--pace 0` for full speed. `Start` and `Restart` only work from the coordinator laptop itself.
+
+**Before class:** when Windows asks, allow Python on *private* networks. Many university Wi-Fi networks block phone-to-laptop traffic; if phones cannot open the page, turn on a phone hotspot, connect the laptop and the phones to it, and restart the command (the printed address changes).
+
+Saved run: `results/bonus/cluster-demo.txt` and `results/bonus/cluster-dashboard.png`.

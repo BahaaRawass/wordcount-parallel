@@ -13,6 +13,13 @@ wordcount = "wordcount.cli:main"
 wordcount-generate = "wordcount.generate:main"
 wordcount-experiment = "wordcount.experiment:main"
 wordcount-race = "wordcount.race:main"
+wordcount-natural-race = "wordcount.natural_race:main"
+wordcount-gil = "wordcount.gil:main"
+wordcount-timeline = "wordcount.timeline:main"
+wordcount-worker = "wordcount.distributed:worker_main"
+wordcount-coordinator = "wordcount.distributed:coordinator_main"
+wordcount-cluster = "wordcount.cluster:main"
+wordcount-cluster-worker = "wordcount.cluster:worker_main"
 
 [tool.uv.build-backend]
 module-name = "wordcount"

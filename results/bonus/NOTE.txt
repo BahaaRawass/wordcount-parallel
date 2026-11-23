@@ -1,0 +1,2 @@
+Bonus results in this folder were produced on a 2-core Linux cloud machine (CPython 3.13.18 standard build and CPython 3.13.14 free-threaded build), 16 MiB generated input, median of 5 runs.
+Rerun them on the presentation laptop with the README commands before submitting; numbers will differ, the pattern should not.

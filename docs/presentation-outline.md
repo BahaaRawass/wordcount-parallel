@@ -42,7 +42,7 @@ Ten slides for approximately 10–12 minutes, including the short live demo. Use
 - Show `data/sample.txt`: exact lowercase count is **7**.
 - Three workers: lines 1–2 → 2; lines 3–4 → 3; lines 5–6 → 2.
 - Run the three-thread trace and point to name, ID, range, size, timestamps.
-- Main combines **2 + 3 + 2 = 7** after completion.
+- With `--combine lock`, each worker adds its partial to the shared total while holding the lock; main waits (join) and prints **2 + 3 + 2 = 7**.
 
 **Speaker notes:** Use demo-script steps 2–4. Trace rows are printed after joins in chunk order. Times and IDs vary. Our recorded tiny task ran its worker intervals successively, which is not evidence of CPU parallelism. Case-insensitive mode has two extra matches, totaling nine.
 

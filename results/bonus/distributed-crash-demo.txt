@@ -1,0 +1,13 @@
+Coordinator: 6 lines, word='the', 3 workers, timeout=2.0s
+ 0.000s  SEND  task 1 (lines 1-2) -> 127.0.0.1:5161
+ 0.001s  SEND  task 2 (lines 3-4) -> 127.0.0.1:5162
+ 0.002s  SEND  task 3 (lines 5-6) -> 127.0.0.1:5163
+ 0.003s  FAIL  127.0.0.1:5161 on task 1: ConnectionError; worker marked dead, task 1 goes back in the queue
+ 0.303s  RECV  task 2 partial=3 from worker-2
+ 0.303s  SEND  task 1 (lines 1-2) -> 127.0.0.1:5162
+ 0.303s  RECV  task 3 partial=2 from worker-3
+ 0.604s  RECV  task 1 partial=2 from worker-2
+Reduction: 2 + 3 + 2 = 7
+Recovered from failed workers: 127.0.0.1:5161
+TOTAL=7
+Elapsed=0.607s

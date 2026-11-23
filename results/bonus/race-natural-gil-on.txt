@@ -1,0 +1,2 @@
+NATURAL RACE (no barriers, no sleeps), GIL ON
+Expected=800000 unsafe=800000 lost=0 locked=800000
