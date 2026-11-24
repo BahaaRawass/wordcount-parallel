@@ -105,23 +105,26 @@ Input read/decode is excluded from the benchmark clock. Partitioning, thread cre
 
 See [results/table.md](results/table.md), [results/experiment.png](results/experiment.png), and report section 7 for actual measurements. Raw timings, warm-ups, hardware and Python details, input hash, source hashes, and execution logs are included. The code does not pin CPU affinity, control power settings, or measure hardware counters.
 
-## Source and deliverable map
+## Source map
 
-| File                                                 | Purpose                                                          |
-| ---------------------------------------------------- | ---------------------------------------------------------------- |
-| `src/wordcount/core.py`                              | Scanner, line partitioning, two reductions, process comparison   |
-| `src/wordcount/cli.py`                               | Arguments and readable trace output                              |
-| `src/wordcount/race.py`                              | Deliberately forced lost update and locked correction            |
-| `src/wordcount/generate.py`                          | Deterministic large file and known-count manifest                |
-| `src/wordcount/experiment.py`                        | Repeated measurements, raw data, metadata, table, chart          |
-| `tests/test_core.py`                                 | 29 passing tests, including independent regex cross-check        |
-| [Research report](docs/report.md)                    | Definitions, diagrams, OS concepts, methods, results, references |
-| [Presentation outline](docs/presentation-outline.md) | Ten slides with speaker notes                                    |
-| [Demo script](docs/demo-script.md)                   | Exact live commands and explanation                              |
-| [Q&A preparation](docs/qa.md)                        | Eight likely instructor questions                                |
-| [Requirement checklist](docs/checklist.md)           | Requirement-to-evidence mapping                                  |
+| File                              | Purpose                                                            |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `src/wordcount/core.py`           | Scanner, line partitioning, two reductions, process comparison     |
+| `src/wordcount/cli.py`            | Arguments and readable trace output                                |
+| `src/wordcount/race.py`           | Deliberately forced lost update and locked correction              |
+| `src/wordcount/generate.py`       | Deterministic large file and known-count manifest                  |
+| `src/wordcount/experiment.py`     | Repeated measurements, raw data, metadata, table, chart            |
+| `src/wordcount/gil.py`            | Bonus: the same threaded counter with the GIL on and off           |
+| `src/wordcount/natural_race.py`   | Bonus: a race condition that happens on its own without the GIL    |
+| `src/wordcount/timeline.py`       | Bonus: timeline chart of when each thread is really working        |
+| `src/wordcount/distributed.py`    | Bonus: coordinator and workers over TCP sockets, crash recovery    |
+| `src/wordcount/cluster.py`        | Bonus: classroom cluster task queue with leases and dashboard      |
+| `src/wordcount/cluster_pages.py`  | Bonus: the phone page and the projector dashboard                  |
+| `tests/test_core.py`, `tests/test_cluster.py` | 41 passing tests, including an independent regex cross-check |
+| `docs/prediction.md`              | The prediction written before the experiment (read by the experiment command) |
+| `results/`                        | Saved outputs of every run: timings, traces, race, bonus demos     |
 
-Regenerate architecture PNGs with `uv run scripts/diagrams.py`. All application code and diagrams were written for this project; no web code was copied. Conceptual sources are cited in the report. Matplotlib draws the figures; the core algorithm is a Python loop, not `str.count`, regex matching, or a NumPy operation. A test uses regex only as an independent correctness oracle.
+The research report and the presentation slides are submitted separately. All application code was written for this project; no web code was copied. Matplotlib draws the charts; the core algorithm is a Python loop, not `str.count`, regex matching, or a NumPy operation. A test uses regex only as an independent correctness oracle.
 
 ## Bonus features (added after the first submission draft)
 
