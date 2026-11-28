@@ -1,2 +1,2 @@
 NATURAL RACE (no barriers, no sleeps), GIL OFF
-Expected=800000 unsafe=402056 lost=397944 locked=800000
+Expected=800000 unsafe=416836 lost=383164 locked=800000
