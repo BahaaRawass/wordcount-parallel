@@ -134,28 +134,32 @@ These extend the required demo. None of them change the original counter.
 
 Python 3.13 ships an official experimental free-threaded build (`3.13t`) with no GIL. We run the unchanged `count_threaded` on both builds.
 
+**How the no-GIL commands work.** The project's chart library (matplotlib, with NumPy and Pillow) has no ready-made packages for free-threaded Python 3.13, so `uv run --python 3.13t wordcount-...` fails while trying to build them. The bonus experiments do not need those libraries (only the plotting step does, and that runs on normal Python). So the no-GIL commands run our code directly: `--no-project` skips installing the project's packages, and `PYTHONPATH=src` lets Python find our code. Run these once per PowerShell window before the no-GIL commands:
+
 ```powershell
 uv python install 3.13t
-uv run wordcount-generate --file data/large.txt --mib 50
-uv run wordcount-gil run --file data/large.txt --workers 1 2 4 8 --repeats 5 --output results/bonus/gil-on.csv
-uv run --python 3.13t wordcount-gil run --file data/large.txt --workers 1 2 4 8 --repeats 5 --output results/bonus/gil-off.csv
-uv run wordcount-gil plot results/bonus/gil-on.csv results/bonus/gil-off.csv --output results/bonus/gil.png
+$env:PYTHONPATH = "src"
 ```
 
-If matplotlib cannot install under 3.13t, add `--no-project` and set `PYTHONPATH=src` for the 3.13t run; plotting is always done with the normal interpreter.
+```powershell
+uv run wordcount-generate --file data/large.txt --mib 50
+uv run wordcount-gil run --file data/large.txt --workers 1 2 4 8 --repeats 5 --output results/bonus/gil-on.csv
+uv run --no-project --python 3.13t python -m wordcount.gil run --file data/large.txt --workers 1 2 4 8 --repeats 5 --output results/bonus/gil-off.csv
+uv run wordcount-gil plot results/bonus/gil-on.csv results/bonus/gil-off.csv --output results/bonus/gil.png
+```
 
 ### 2. A natural race condition (no barriers, no sleeps)
 
 ```powershell
-uv run wordcount-natural-race                  # GIL on: usually 0 lost
-uv run --python 3.13t wordcount-natural-race   # GIL off: hundreds of thousands lost
+uv run wordcount-natural-race                                            # GIL on: usually 0 lost
+uv run --no-project --python 3.13t python -m wordcount.natural_race      # GIL off: hundreds of thousands lost
 ```
 
 ### 3. Thread timeline (who is really running)
 
 ```powershell
 uv run wordcount-timeline --file data/large.txt --threads 2 --output results/bonus/timeline-gil-on.json
-uv run --python 3.13t wordcount-timeline --file data/large.txt --threads 2 --output results/bonus/timeline-gil-off.json
+uv run --no-project --python 3.13t python -m wordcount.timeline --file data/large.txt --threads 2 --output results/bonus/timeline-gil-off.json
 uv run wordcount-timeline --plot results/bonus/timeline-gil-on.json results/bonus/timeline-gil-off.json --output results/bonus/timeline.png
 ```
 

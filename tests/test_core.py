@@ -3,7 +3,7 @@ import re
 
 import pytest
 
-from wordcount.core import (count_lines, count_processes, count_threaded,
+from wordcount.core import (count_processes, count_threaded,
                             partition_lines, read_lines)
 from wordcount.race import run_race
 

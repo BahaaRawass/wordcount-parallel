@@ -21,7 +21,7 @@ WORKER_HTML = r"""<!doctype html>
 <h1>Word-count cluster</h1><p class="sub">Your device becomes one worker of a distributed program.</p>
 <section id="joinBox" class="card">
  <label for="name" class="muted">Your name (shown on the projector)</label>
- <input id="name" maxlength="24" placeholder="e.g. Yasmine's phone">
+ <input id="name" maxlength="24" placeholder="e.g. Phone 1">
  <button id="join">Join as a worker</button>
 </section>
 <section id="workBox" class="card hidden">
